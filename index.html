@@ -1,0 +1,344 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Git::Wrapper by genehack</title>
+    
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Git::Wrapper</h1>
+        <p>Perl wrapper for git(7) command line interface</p>
+        <p class="view"><a href="https://github.com/genehack/Git-Wrapper">View the Project on GitHub <small>genehack/Git-Wrapper</small></a></p>
+        <ul>
+          <li><a href="https://github.com/genehack/Git-Wrapper/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/genehack/Git-Wrapper/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/genehack/Git-Wrapper">Fork On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>NAME</h1>
+
+<p>Git::Wrapper - Wrap git(7) command-line interface</p>
+
+<h1>SYNOPSIS</h1>
+
+<pre><code>my $git = Git::Wrapper-&gt;new('/var/foo');
+
+$git-&gt;commit(...)
+print $_-&gt;message for $git-&gt;log;
+</code></pre>
+
+<h1>DESCRIPTION</h1>
+
+<p>Git::Wrapper provides an API for git(7) that uses Perl data structures for
+argument passing, instead of CLI-style <code>--options</code> as <a href="http://search.cpan.org/perldoc?Git">Git</a> does.</p>
+
+<h1>METHODS</h1>
+
+<p>Except as documented, every git subcommand is available as a method on a
+Git::Wrapper object.  Replace any hyphens in the git command with underscores.</p>
+
+<p>The first argument should be a hashref containing options and their values.
+Boolean options are either true (included) or false (excluded).  The remaining
+arguments are passed as ordinary command arguments.</p>
+
+<pre><code>$git-&gt;commit({ all =&gt; 1, message =&gt; "stuff" });
+
+$git-&gt;checkout("mybranch");
+</code></pre>
+
+<p><em>N.b.</em> Because of the way arguments are parsed, should you need to pass an
+explicit '0' value to an option (for example, to have the same effect as
+<code>--abrrev=0</code> on the command line), you should pass it with a leading space, like so:</p>
+
+<pre><code>$git-&gt;describe({ abbrev =&gt; ' 0' };
+</code></pre>
+
+<p>Output is available as an array of lines, each chomped.</p>
+
+<pre><code>@sha1s_and_titles = $git-&gt;rev_list({ all =&gt; 1, pretty =&gt; 'oneline' });
+</code></pre>
+
+<p>If a git command exits nonzero, a <code>Git::Wrapper::Exception</code> object will be
+thrown.  It has three useful methods:</p>
+
+<ul>
+<li>error</li>
+</ul><p>error message</p>
+
+<ul>
+<li>output</li>
+</ul><p>normal output, as a single string</p>
+
+<ul>
+<li>status</li>
+</ul><p>the exit status</p>
+
+<p>The exception stringifies to the error message.</p>
+
+<h2>new</h2>
+
+<pre><code>my $git = Git::Wrapper-&gt;new($dir);
+</code></pre>
+
+<h2>dir</h2>
+
+<pre><code>print $git-&gt;dir; # /var/foo
+</code></pre>
+
+<h2>version</h2>
+
+<pre><code>my $version = $git-&gt;version; # 1.6.1.4.8.15.16.23.42
+</code></pre>
+
+<h2>log</h2>
+
+<pre><code>my @logs = $git-&gt;log;
+</code></pre>
+
+<p>Instead of giving back an arrayref of lines, the <code>log</code> method returns a list
+of <code>Git::Wrapper::Log</code> objects.  They have four methods:</p>
+
+<ul>
+<li>id</li>
+<li>author</li>
+<li>date</li>
+<li>message</li>
+</ul><h2>has_git_in_path</h2>
+
+<p>This method returns a true or false value indicating if there is a 'git'
+binary in the current $PATH.</p>
+
+<h2>supports_status_porcelain</h2>
+
+<h2>supports_log_raw_dates</h2>
+
+<p>These methods return a true or false value (1 or 0) indicating whether the git
+binary being used has support for these options. (The '--porcelain' option on
+'git status' and the '--date=raw' option on 'git log', respectively.)</p>
+
+<p>These are primarily for use in this distribution's test suite, but may also be
+useful when writing code using Git::Wrapper that might be run with different
+versions of the underlying git binary.</p>
+
+<h2>status</h2>
+
+<p>When running with an underlying git binary that returns false for the
+<a href="#supports_status_porcelain">"supports_status_porcelain"</a> method, this method will act like any other
+wrapped command: it will return output as an array of chomped lines.</p>
+
+<p>When running with an underlying git binary that returns true for the
+<a href="#supports_status_porcelain">"supports_status_porcelain"</a> method, this method instead returns an
+instance of Git::Wrapper::Statuses:</p>
+
+<pre><code>my $statuses = $git-&gt;status;
+</code></pre>
+
+<p>Git::Wrapper:Statuses has two public methods. First, <code>is_dirty</code>:</p>
+
+<pre><code>my $dirty_flag = $statuses-&gt;is_dirty;
+</code></pre>
+
+<p>which returns a true/false value depending on whether the repository has any
+uncommitted changes.</p>
+
+<p>Second, <code>get</code>:</p>
+
+<pre><code>my @status = $statuses-&gt;get($group)
+</code></pre>
+
+<p>which returns an array of Git::Wrapper::Status objects, one per file changed.</p>
+
+<p>There are four status groups, each of which may contain zero or more changes.</p>
+
+<ul>
+<li>indexed : Changed &amp; added to the index (aka, will be committed)</li>
+<li>changed : Changed but not in the index (aka, won't be committed)</li>
+<li>unknown : Untracked files</li>
+<li>conflict : Merge conflicts</li>
+</ul><p>Note that a single file can occur in more than one group.  Eg, a modified file
+that has been added to the index will appear in the 'indexed' list.  If it is
+subsequently further modified it will additionally appear in the 'changed'
+group.</p>
+
+<p>A Git::Wrapper::Status object has three methods you can call:</p>
+
+<pre><code>my $from = $status-&gt;from;
+</code></pre>
+
+<p>The file path of the changed file, relative to the repo root.  For renames,
+this is the original path.</p>
+
+<pre><code>my $to = $status-&gt;to;
+</code></pre>
+
+<p>Renames returns the new path/name for the path.  In all other cases returns
+an empty string.</p>
+
+<pre><code>my $mode = $status-&gt;mode;
+</code></pre>
+
+<p>Indicates what has changed about the file.</p>
+
+<p>Within each group (except 'conflict') a file can be in one of a number of
+modes, although some modes only occur in some groups (eg, 'added' never appears
+in the 'unknown' group).</p>
+
+<ul>
+<li>modified</li>
+<li>added</li>
+<li>deleted</li>
+<li>renamed</li>
+<li>copied</li>
+<li>conflict</li>
+</ul><p>All files in the 'unknown' group will have a mode of 'unknown' (which is
+redundant but at least consistent).</p>
+
+<p>The 'conflict' group instead has the following modes.</p>
+
+<ul>
+<li>'both deleted' : deleted on both branches</li>
+<li>'both added'   : added on both branches</li>
+<li>'both modified' : modified on both branches</li>
+<li>'added by us'  : added only on our branch</li>
+<li>'deleted by us' : deleted only on our branch</li>
+<li>'added by them' : added on the branch we are merging in</li>
+<li>'deleted by them' : deleted on the branch we are merging in</li>
+</ul><p>See git-status man page for more details.</p>
+
+<h3>Example</h3>
+
+<pre><code>my $git = Git::Wrapper-&gt;new('/path/to/git/repo');
+my $statuses = $git-&gt;status;
+for my $type (qw&lt;indexed changed unknown conflict&gt;) {
+    my @states = $statuses-&gt;get($type)
+        or next;
+    print "Files in state $type\n";
+    for (@states) {
+        print '  ', $_-&gt;mode, ' ', $_-&gt;from;
+        print ' renamed to ', $_-&gt;to
+            if $_-&gt;mode eq 'renamed';
+        print "\n";
+    }
+}
+</code></pre>
+
+<h2>RUN</h2>
+
+<p>This method bypasses the output rearranging performed by some of the wrapped
+methods described above (i.e., <code>log</code>, <code>status</code>, etc.). This can be useful
+in various situations, such as when you want to produce a particular log
+output format that isn't compatible with the way <code>Git::Wrapper</code> constructs
+<code>Git::Wrapper::Log</code>, or when you want raw <code>git status</code> output that isn't
+parsed into a <a>Git::Wrapper::Status</a> object.</p>
+
+<p>This method should be called with an initial string argument of the <code>git</code>
+subcommand you want to run, followed by a hashref containing options and their
+values, and then a list of any other arguments.</p>
+
+<h3>Example</h3>
+
+<pre><code>my $git = Git::Wrapper-&gt;new( '/path/to/git/repo' );
+
+# the 'log' method returns Git::Wrapper::Log objects
+my @log_objects = $git-&gt;log();
+
+# while 'RUN('log')' returns an array of chomped lines
+my @log_lines = $git-&gt;RUN('log');
+</code></pre>
+
+<h2>ERR</h2>
+
+<p>After a command has been run, this method will return anything that was sent
+to <code>STDERR</code>, in the form of an array of chomped lines. This information will
+be cleared as soon as a new command is executed. This method should <strong>*NOT*</strong>
+be used as a success/failure check, as <code>git</code> will sometimes produce output on
+STDERR when a command is successful.</p>
+
+<h2>OUT</h2>
+
+<p>After a command has been run, this method will return anything that was sent
+to <code>STDOUT</code>, in the form of an array of chomped lines. It is identical to
+what is returned from the method call that runs the command, and is provided
+simply for symmetry with the <code>ERR</code> method. This method should <strong>*NOT*</strong> be
+used as a success/failure check, as <code>git</code> will frequently not have any output
+with a successful command.</p>
+
+<h1>COMPATIBILITY</h1>
+
+<p>On Win32 Git::Wrapper is incompatible with msysGit installations earlier than
+Git-1.7.1-preview20100612 due to a bug involving the return value of a git
+command in cmd/git.cmd.  If you use the msysGit version distributed with
+GitExtensions or an earlier version of msysGit, tests will fail during
+installation of this module.  You can get the latest version of msysGit on the
+Google Code project page: <a href="http://code.google.com/p/msysgit/downloads">http://code.google.com/p/msysgit/downloads</a></p>
+
+<h1>ENVIRONMENT VARIABLES</h1>
+
+<p>Git::Wrapper normally uses the first 'git' binary in your path, but if the
+GIT_WRAPPER_GIT environment variable is set, that value will be used instead.</p>
+
+<h1>SEE ALSO</h1>
+
+<p><a href="http://search.cpan.org/perldoc?VCI::VCS::Git">VCI::VCS::Git</a> is the git implementation for <a href="http://search.cpan.org/perldoc?VCI">VCI</a>, a generic interface to
+version-controle systems.</p>
+
+<p><a href="https://metacpan.org/module/Git::Repository#OTHER-PERL-GIT-WRAPPERS">Other Perl Git Wrappers</a>
+is a list of other Git interfaces in Perl. If <a href="http://search.cpan.org/perldoc?Git::Wrapper">Git::Wrapper</a> doesn't scratch
+your itch, possibly one of the modules listed there will.</p>
+
+<p>Git itself is at <a href="http://git.or.cz">http://git.or.cz</a>.</p>
+
+<h1>REPORTING BUGS &amp; OTHER WAYS TO CONTRIBUTE</h1>
+
+<p>The code for this module is maintained on GitHub, at
+<a href="https://github.com/genehack/Git-Wrapper">https://github.com/genehack/Git-Wrapper</a>. If you have a patch, feel free to
+fork the repository and submit a pull request. If you find a bug, please open
+an issue on the project at GitHub. (We also watch the <a href="http://rt.cpan.org">http://rt.cpan.org</a>
+queue for Git::Wrapper, so feel free to use that bug reporting system if you
+prefer)</p>
+
+<h1>AUTHORS</h1>
+
+<ul>
+<li>Hans Dieter Pearcey <a href="mailto:hdp@cpan.org">hdp@cpan.org</a>
+</li>
+<li>Chris Prather <a href="mailto:chris@prather.org">chris@prather.org</a>
+</li>
+<li>John SJ Anderson <a href="mailto:genehack@genehack.org">genehack@genehack.org</a>
+</li>
+</ul><h1>COPYRIGHT AND LICENSE</h1>
+
+<p>This software is copyright (c) 2008 by Hans Dieter Pearcey.</p>
+
+<p>This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/genehack">genehack</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-31269791-1");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>
